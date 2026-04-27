@@ -1,0 +1,35 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
+import CandidateDetail from './pages/CandidateDetail'
+import InterestForm from './pages/InterestForm'
+import InterestFormSuccess from './pages/InterestFormSuccess'
+import ApplicationForm from './pages/ApplicationForm'
+import ApplicationSuccess from './pages/ApplicationSuccess'
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public — candidate-facing */}
+          <Route path="/apply" element={<InterestForm />} />
+          <Route path="/apply/success" element={<InterestFormSuccess />} />
+          <Route path="/application/:token" element={<ApplicationForm />} />
+          <Route path="/application/success" element={<ApplicationSuccess />} />
+
+          {/* Auth */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Hiring manager — protected */}
+          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/candidates/:id" element={<ProtectedRoute><CandidateDetail /></ProtectedRoute>} />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  )
+}
