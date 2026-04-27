@@ -6,7 +6,9 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(supabase --version)",
       "Bash(gh auth *)",
-      "Bash(gh repo *)"
+      "Bash(gh repo *)",
+      "Bash(brew install *)",
+      "Bash(python3 -c \"import pdfminer\")"
     ]
   }
 }

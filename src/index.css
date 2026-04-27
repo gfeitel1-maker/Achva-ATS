@@ -4,3 +4,46 @@ body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
 }
+
+/* ── Pozez JCC Brand Colors ──────────────────────────────────
+   Overrides Tailwind's default blue/green/red scales with the
+   J's brand palette so all existing utility classes just work.
+   Primary teal: #00ADBB  |  Green: #00AA59  |  Red: #F0585D
+   ──────────────────────────────────────────────────────────── */
+@theme {
+  /* Blue scale → J Brand Teal (#00ADBB) */
+  --color-blue-50:  #e8f9fa;
+  --color-blue-100: #d0f3f6;
+  --color-blue-200: #a1e7ee;
+  --color-blue-300: #59d3de;
+  --color-blue-400: #1dbfcc;
+  --color-blue-500: #00adbb;
+  --color-blue-600: #00adbb;
+  --color-blue-700: #009aa7;
+  --color-blue-800: #008490;
+  --color-blue-900: #006c76;
+
+  /* Green scale → J Brand Green (#00AA59) */
+  --color-green-50:  #e6f8ef;
+  --color-green-100: #b3e8cc;
+  --color-green-200: #80d9aa;
+  --color-green-300: #4dca87;
+  --color-green-400: #1abb65;
+  --color-green-500: #00aa59;
+  --color-green-600: #00aa59;
+  --color-green-700: #008845;
+  --color-green-800: #006633;
+  --color-green-900: #004422;
+
+  /* Red scale → J Brand Red (#F0585D) */
+  --color-red-50:  #fef2f2;
+  --color-red-100: #fcd9da;
+  --color-red-200: #f9b3b5;
+  --color-red-300: #f58c8f;
+  --color-red-400: #f0585d;
+  --color-red-500: #e84a4f;
+  --color-red-600: #d4434a;
+  --color-red-700: #b83038;
+  --color-red-800: #8f2029;
+  --color-red-900: #661519;
+}

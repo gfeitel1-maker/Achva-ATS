@@ -16,10 +16,11 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <nav className="bg-slate-800 text-white px-6 h-12 flex items-center gap-6 flex-shrink-0">
+      <nav className="bg-[#0D2B3E] text-white px-6 h-12 flex items-center gap-6 flex-shrink-0">
         <span className="font-bold text-sm tracking-wide">Camp ATS</span>
         <div className="flex gap-5 ml-2">
           <NavLink to="/" active={location.pathname === '/'}>Dashboard</NavLink>
+          <NavLink to="/settings" active={location.pathname === '/settings'}>Forms</NavLink>
         </div>
         <div className="ml-auto">
           <button

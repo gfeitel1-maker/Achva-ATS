@@ -39,6 +39,7 @@ export default function CandidateDetail() {
   const [record, setRecord]         = useState(null)
   const [submission, setSubmission] = useState(null)
   const [appSub, setAppSub]         = useState(null)
+  const [appFields, setAppFields]   = useState([])
   const [refs, setRefs]             = useState([])
   const [notes, setNotes]           = useState([])
   const [loading, setLoading]       = useState(true)
@@ -80,7 +81,21 @@ export default function CandidateDetail() {
         supabase.from('references').select('id, reference_name, reference_email, reference_phone, reference_relationship, how_long_known, response_received_at, email_sent_at, response, reference_token').eq('pipeline_record_id', id).order('created_at'),
         supabase.from('interview_notes').select('*').eq('pipeline_record_id', id).order('created_at', { ascending: false }),
       ])
-      if (recordRes.data) { setRecord(recordRes.data); setPositionValue(recordRes.data.position ?? '') }
+      if (recordRes.data) {
+        setRecord(recordRes.data)
+        setPositionValue(recordRes.data.position ?? '')
+        // Load application field definitions for this spoke
+        const spokeId = recordRes.data.hiring_cycles?.spoke_id
+        if (spokeId) {
+          supabase.from('applications').select('fields').eq('spoke_id', spokeId).eq('is_active', true).single()
+            .then(({ data }) => {
+              if (data?.fields) {
+                const sorted = [...data.fields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                setAppFields(sorted)
+              }
+            })
+        }
+      }
       setSubmission(subRes.data ?? null)
       setAppSub(appRes.data ?? null)
       setRefs(refsRes.data ?? [])
@@ -584,6 +599,7 @@ export default function CandidateDetail() {
           {/* ── APPLICATION TAB ── */}
           {activeTab === 'Application' && (
             <div className="space-y-4">
+              {/* Personal info — always from candidate record */}
               <Section title="Personal information">
                 <div className="grid grid-cols-2 gap-x-8 gap-y-4">
                   <InfoField label="Full name" value={`${c?.first_name ?? ''} ${c?.last_name ?? ''}`.trim()} />
@@ -601,28 +617,33 @@ export default function CandidateDetail() {
                 </div>
               </Section>
 
-              {(record.position || appSub) && (
-                <Section title="Applying for">
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                    {record.position && <InfoField label="Position" value={record.position} />}
-                    {appSub?.responses?.availability && <InfoField label="Availability" value={appSub.responses.availability} />}
-                    {appSub?.responses?.current_school && <InfoField label="School" value={appSub.responses.current_school} />}
-                  </div>
-                </Section>
-              )}
+              {/* Dynamic fields from application definition */}
+              {appSub && appFields.map(f => (
+                <AppFieldResponse key={f.id} field={f} value={appSub.responses?.[f.id]} />
+              ))}
 
-              {Array.isArray(appSub?.responses?.employment_history) && appSub.responses.employment_history.length > 0 && (
-                <Section title="Employment history">
-                  <div className="space-y-3">
-                    {appSub.responses.employment_history.map((job, i) => (
-                      <div key={i} className="border border-gray-100 rounded-lg p-4">
-                        <p className="text-sm font-semibold text-gray-900">{job.role}{job.employer ? ` — ${job.employer}` : ''}</p>
-                        {job.dates && <p className="text-xs text-gray-400 mt-0.5">{job.dates}</p>}
-                        {job.description && <p className="text-sm text-gray-600 mt-2 leading-relaxed">{job.description}</p>}
+              {/* Fallback: if no field definitions loaded but submission exists */}
+              {appSub && appFields.length === 0 && (
+                <>
+                  {appSub.responses?.availability && (
+                    <Section title="Availability">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{appSub.responses.availability}</p>
+                    </Section>
+                  )}
+                  {Array.isArray(appSub.responses?.employment_history) && appSub.responses.employment_history.length > 0 && (
+                    <Section title="Employment history">
+                      <div className="space-y-3">
+                        {appSub.responses.employment_history.map((job, i) => (
+                          <div key={i} className="border border-gray-100 rounded-lg p-4">
+                            <p className="text-sm font-semibold text-gray-900">{job.role}{job.employer ? ` — ${job.employer}` : ''}</p>
+                            {job.dates && <p className="text-xs text-gray-400 mt-0.5">{job.dates}</p>}
+                            {job.description && <p className="text-sm text-gray-600 mt-2 leading-relaxed">{job.description}</p>}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </Section>
+                    </Section>
+                  )}
+                </>
               )}
 
               {!appSub && stage === 'application' && record.application_token && (
@@ -878,6 +899,60 @@ function DocCard({ title, available, children }) {
       </button>
       {open && <div className="px-6 pb-6 border-t border-gray-100 pt-5">{children}</div>}
     </div>
+  )
+}
+
+function AppFieldResponse({ field, value }) {
+  if (value === undefined || value === null || value === '') return null
+
+  if (field.type === 'employment_history' && Array.isArray(value) && value.length > 0) {
+    const sf = field.sub_fields ?? {}
+    return (
+      <Section title={field.label}>
+        <div className="space-y-3">
+          {value.map((job, i) => (
+            <div key={i} className="border border-gray-100 rounded-lg p-4 space-y-2">
+              <p className="text-sm font-semibold text-gray-900">
+                {[job.role, job.employer].filter(Boolean).join(' — ')}
+              </p>
+              {job.dates && <p className="text-xs text-gray-400">{job.dates}</p>}
+              {job.description && <p className="text-sm text-gray-600 leading-relaxed">{job.description}</p>}
+              {(job.supervisor_name || job.supervisor_contact) && (
+                <p className="text-xs text-gray-500">
+                  Supervisor: {[job.supervisor_name, job.supervisor_contact].filter(Boolean).join(' · ')}
+                  {job.may_contact && ` · Contact: ${job.may_contact}`}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </Section>
+    )
+  }
+
+  if (field.type === 'school_history' && Array.isArray(value) && value.length > 0) {
+    return (
+      <Section title={field.label}>
+        <div className="space-y-3">
+          {value.map((school, i) => (
+            <div key={i} className="border border-gray-100 rounded-lg p-4">
+              <p className="text-sm font-semibold text-gray-900">{school.name}</p>
+              {school.program && <p className="text-sm text-gray-600 mt-0.5">{school.program}</p>}
+              <p className="text-xs text-gray-400 mt-1">
+                {[school.dates, school.graduated ? `Graduated: ${school.graduated}` : null].filter(Boolean).join(' · ')}
+              </p>
+            </div>
+          ))}
+        </div>
+      </Section>
+    )
+  }
+
+  // Simple fields
+  return (
+    <Section title={field.label}>
+      <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{String(value)}</p>
+    </Section>
   )
 }
 

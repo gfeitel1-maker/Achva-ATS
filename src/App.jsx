@@ -10,6 +10,7 @@ import ApplicationForm from './pages/ApplicationForm'
 import ApplicationSuccess from './pages/ApplicationSuccess'
 import ReferenceForm from './pages/ReferenceForm'
 import ReferenceSuccess from './pages/ReferenceSuccess'
+import Settings from './pages/Settings'
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
           {/* Hiring manager — protected */}
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/candidates/:id" element={<ProtectedRoute><CandidateDetail /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

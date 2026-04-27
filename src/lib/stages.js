@@ -4,7 +4,7 @@
 export const STAGES = {
   interest:      { label: 'Interest',      color: 'gray',  order: 1 },
   interview:     { label: 'Interview',     color: 'blue',  order: 2 },
-  application:   { label: 'Application',   color: 'cyan',  order: 3 },
+  application:   { label: 'Application',   color: 'blue',  order: 3 },
   offer:         { label: 'Offer',         color: 'green', order: 4 },
   hired:         { label: 'Hired',         color: 'green', order: 5 },
   not_advancing: { label: 'Not Advancing', color: 'red',   order: 6 },

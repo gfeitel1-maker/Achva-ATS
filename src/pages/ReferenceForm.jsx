@@ -2,24 +2,25 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
-const QUESTIONS = [
-  { id: 'capacity',        label: 'In what capacity do you know this person?', type: 'text' },
-  { id: 'character',       label: 'How would you describe their character and work ethic?', type: 'textarea' },
-  { id: 'youth',          label: 'How do they interact with young people or in a team setting?', type: 'textarea' },
-  { id: 'challenge',       label: 'Can you describe how they handle responsibility or a difficult situation?', type: 'textarea' },
-  { id: 'recommend',       label: 'Would you recommend them for a role working with youth at an overnight camp?', type: 'select',
+const FALLBACK_QUESTIONS = [
+  { id: 'capacity',     label: 'In what capacity do you know this person?', type: 'text' },
+  { id: 'character',    label: 'How would you describe their character and work ethic?', type: 'textarea' },
+  { id: 'youth',        label: 'How do they interact with young people or in a team setting?', type: 'textarea' },
+  { id: 'challenge',    label: 'Can you describe how they handle responsibility or a difficult situation?', type: 'textarea' },
+  { id: 'recommend',    label: 'Would you recommend them for a role working with youth at an overnight camp?', type: 'select',
     options: ['Strongly recommend', 'Recommend', 'Recommend with reservations', 'Would not recommend'] },
-  { id: 'anything_else',   label: 'Is there anything else you\'d like us to know?', type: 'textarea', optional: true },
+  { id: 'anything_else', label: "Is there anything else you'd like us to know?", type: 'textarea', optional: true },
 ]
 
 export default function ReferenceForm() {
   const { token } = useParams()
   const navigate  = useNavigate()
 
-  const [info, setInfo]       = useState(null)
-  const [error, setError]     = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [answers, setAnswers] = useState({})
+  const [info, setInfo]           = useState(null)
+  const [questions, setQuestions] = useState(FALLBACK_QUESTIONS)
+  const [error, setError]         = useState(null)
+  const [loading, setLoading]     = useState(true)
+  const [answers, setAnswers]     = useState({})
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -29,6 +30,10 @@ export default function ReferenceForm() {
         setError(data?.error ?? 'invalid_token')
       } else {
         setInfo(data)
+        if (Array.isArray(data.questions) && data.questions.length > 0) {
+          const qs = [...data.questions].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+          setQuestions(qs)
+        }
       }
       setLoading(false)
     }
@@ -54,7 +59,7 @@ export default function ReferenceForm() {
     }
   }
 
-  const required = QUESTIONS.filter(q => !q.optional)
+  const required = questions.filter(q => !q.optional)
   const allAnswered = required.every(q =>
     q.type === 'select'
       ? !!answers[q.id]
@@ -90,7 +95,7 @@ export default function ReferenceForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {QUESTIONS.map(q => (
+        {questions.map(q => (
           <div key={q.id}>
             <label className="block text-sm font-medium text-gray-800 mb-2">
               {q.label}
