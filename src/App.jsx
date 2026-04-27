@@ -8,6 +8,8 @@ import InterestForm from './pages/InterestForm'
 import InterestFormSuccess from './pages/InterestFormSuccess'
 import ApplicationForm from './pages/ApplicationForm'
 import ApplicationSuccess from './pages/ApplicationSuccess'
+import ReferenceForm from './pages/ReferenceForm'
+import ReferenceSuccess from './pages/ReferenceSuccess'
 
 export default function App() {
   return (
@@ -19,6 +21,8 @@ export default function App() {
           <Route path="/apply/success" element={<InterestFormSuccess />} />
           <Route path="/application/:token" element={<ApplicationForm />} />
           <Route path="/application/success" element={<ApplicationSuccess />} />
+          <Route path="/reference/:token" element={<ReferenceForm />} />
+          <Route path="/reference/success" element={<ReferenceSuccess />} />
 
           {/* Auth */}
           <Route path="/login" element={<Login />} />

@@ -44,6 +44,7 @@ export default function CandidateDetail() {
   const [loading, setLoading]       = useState(true)
   const [saving, setSaving]         = useState(false)
   const [copied, setCopied]         = useState(false)
+  const [sendingRef, setSendingRef] = useState(null)
   const [activeTab, setActiveTab]   = useState('Application')
 
   // Offer state
@@ -76,7 +77,7 @@ export default function CandidateDetail() {
           .select('responses, interest_forms(questions)').eq('pipeline_record_id', id).maybeSingle(),
         supabase.from('application_submissions')
           .select('responses, submitted_at').eq('pipeline_record_id', id).maybeSingle(),
-        supabase.from('references').select('*').eq('pipeline_record_id', id).order('created_at'),
+        supabase.from('references').select('id, reference_name, reference_email, reference_phone, reference_relationship, how_long_known, response_received_at, email_sent_at, response, reference_token').eq('pipeline_record_id', id).order('created_at'),
         supabase.from('interview_notes').select('*').eq('pipeline_record_id', id).order('created_at', { ascending: false }),
       ])
       if (recordRes.data) { setRecord(recordRes.data); setPositionValue(recordRes.data.position ?? '') }
@@ -179,6 +180,27 @@ export default function CandidateDetail() {
     navigator.clipboard.writeText(`${window.location.origin}/application/${record.application_token}`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  async function sendReferenceRequest(ref) {
+    setSendingRef(ref.id)
+    const orgName = record.hiring_cycles?.spokes?.name ?? 'Camp'
+    const link = `${window.location.origin}/reference/${ref.reference_token}`
+    const { error } = await supabase.functions.invoke('send-reference-email', {
+      body: {
+        reference_name:  ref.reference_name,
+        reference_email: ref.reference_email,
+        candidate_name:  `${c.first_name} ${c.last_name}`,
+        org_name:        orgName,
+        reference_link:  link,
+      },
+    })
+    if (!error) {
+      const now = new Date().toISOString()
+      await supabase.from('references').update({ email_sent_at: now }).eq('id', ref.id)
+      setRefs(prev => prev.map(r => r.id === ref.id ? { ...r, email_sent_at: now } : r))
+    }
+    setSendingRef(null)
   }
 
   async function generateOffer() {
@@ -626,24 +648,78 @@ export default function CandidateDetail() {
 
           {/* ── REFERENCES TAB ── */}
           {activeTab === 'References' && (
-            <div>
+            <div className="space-y-3">
               {refs.length === 0 ? (
-                <EmptyState text="No references submitted yet." />
+                <EmptyState text="No references on file for this candidate." />
               ) : (
-                <div className="space-y-3">
-                  {refs.map(ref => (
-                    <div key={ref.id} className="bg-white rounded-xl border border-gray-200 p-5 flex items-start justify-between gap-4">
-                      <div>
+                refs.map(ref => (
+                  <div key={ref.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    {/* Header */}
+                    <div className="p-5 flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900">{ref.reference_name}</p>
                         <p className="text-xs text-gray-400 mt-0.5">{[ref.reference_relationship, ref.how_long_known].filter(Boolean).join(' · ')}</p>
                         <p className="text-xs text-gray-500 mt-1">{[ref.reference_email, ref.reference_phone].filter(Boolean).join(' · ')}</p>
                       </div>
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ${ref.response_received_at ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
-                        {ref.response_received_at ? 'Responded' : 'Pending'}
-                      </span>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        {ref.response_received_at ? (
+                          <span className="text-xs px-2 py-1 rounded-full font-medium bg-green-50 text-green-700">Responded</span>
+                        ) : ref.email_sent_at ? (
+                          <span className="text-xs px-2 py-1 rounded-full font-medium bg-amber-50 text-amber-600">Awaiting response</span>
+                        ) : (
+                          <button
+                            onClick={() => sendReferenceRequest(ref)}
+                            disabled={sendingRef === ref.id}
+                            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                          >
+                            {sendingRef === ref.id ? 'Sending...' : 'Send request'}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  ))}
-                </div>
+
+                    {/* Email sent date */}
+                    {ref.email_sent_at && !ref.response_received_at && (
+                      <div className="px-5 pb-4">
+                        <p className="text-xs text-gray-300">
+                          Request sent {new Date(ref.email_sent_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                          {' · '}
+                          <button
+                            onClick={() => sendReferenceRequest(ref)}
+                            disabled={sendingRef === ref.id}
+                            className="text-blue-500 hover:text-blue-700 disabled:opacity-50"
+                          >
+                            {sendingRef === ref.id ? 'Sending...' : 'Resend'}
+                          </button>
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Response */}
+                    {ref.response && ref.response_received_at && (
+                      <div className="border-t border-gray-100 px-5 py-5 space-y-4">
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                          Response · {new Date(ref.response_received_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                        </p>
+                        {[
+                          { id: 'capacity',    label: 'How they know the candidate' },
+                          { id: 'recommend',   label: 'Recommendation' },
+                          { id: 'character',   label: 'Character & work ethic' },
+                          { id: 'youth',       label: 'With young people' },
+                          { id: 'challenge',   label: 'Handling responsibility' },
+                          { id: 'anything_else', label: 'Anything else' },
+                        ].map(({ id, label }) => ref.response[id] ? (
+                          <div key={id}>
+                            <p className="text-xs font-medium text-gray-400 mb-1">{label}</p>
+                            <p className={`text-sm leading-relaxed ${id === 'recommend' ? 'font-semibold text-gray-800' : 'text-gray-700'}`}>
+                              {ref.response[id]}
+                            </p>
+                          </div>
+                        ) : null)}
+                      </div>
+                    )}
+                  </div>
+                ))
               )}
             </div>
           )}
