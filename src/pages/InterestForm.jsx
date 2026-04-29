@@ -93,7 +93,7 @@ export default function InterestForm() {
       return
     }
 
-    navigate('/apply/success', { state: { firstName: identity.firstName } })
+    navigate('/schedule', { state: { firstName: identity.firstName } })
   }
 
   if (loading) {

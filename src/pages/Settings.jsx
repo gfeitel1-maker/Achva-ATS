@@ -31,6 +31,7 @@ export default function Settings() {
     { id: 'interest',   label: 'Interest Form' },
     { id: 'application', label: 'Application' },
     { id: 'reference',  label: 'Reference Check' },
+    { id: 'documents',  label: 'Documents' },
   ]
 
   return (
@@ -54,6 +55,7 @@ export default function Settings() {
       {spokeId && tab === 'interest'     && <InterestFormEditor   spokeId={spokeId} />}
       {spokeId && tab === 'application'  && <ApplicationEditor    spokeId={spokeId} />}
       {spokeId && tab === 'reference'    && <ReferenceEditor      spokeId={spokeId} />}
+      {spokeId && tab === 'documents'    && <DocumentsEditor      spokeId={spokeId} />}
       {!spokeId && <p className="text-sm text-gray-400">Loading...</p>}
     </Layout>
   )
@@ -622,6 +624,108 @@ function ReferenceEditor({ spokeId }) {
         <button onClick={addQuestion}
           className="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium">
           + Add question
+        </button>
+      </FormSection>
+
+      <div className="flex justify-end">
+        <SaveButton saving={saving} saved={saved} onClick={save} />
+      </div>
+    </div>
+  )
+}
+
+// ── Documents Editor ──────────────────────────────────────────
+
+function DocumentsEditor({ spokeId }) {
+  const [docs, setDocs]           = useState([])
+  const [removedIds, setRemovedIds] = useState(new Set())
+  const [loading, setLoading]     = useState(true)
+  const [saving, setSaving]       = useState(false)
+  const [saved, setSaved]         = useState(false)
+
+  useEffect(() => {
+    supabase.from('documents')
+      .select('id, name, description')
+      .eq('spoke_id', spokeId)
+      .eq('is_active', true)
+      .order('name')
+      .then(({ data }) => { setDocs(data ?? []); setLoading(false) })
+  }, [spokeId])
+
+  function addDoc() {
+    setDocs(prev => [...prev, { id: newId(), name: '', description: '', _new: true }])
+  }
+
+  function update(id, key, val) {
+    setDocs(prev => prev.map(d => d.id === id ? { ...d, [key]: val } : d))
+  }
+
+  function remove(id, isNew) {
+    setDocs(prev => prev.filter(d => d.id !== id))
+    if (!isNew) setRemovedIds(prev => new Set([...prev, id]))
+  }
+
+  async function save() {
+    setSaving(true)
+    const valid = docs.filter(d => d.name.trim())
+
+    for (const id of removedIds) {
+      await supabase.from('documents').update({ is_active: false }).eq('id', id)
+    }
+
+    const newDocs = valid.filter(d => d._new)
+    if (newDocs.length) {
+      await supabase.from('documents').insert(
+        newDocs.map(d => ({ id: d.id, spoke_id: spokeId, name: d.name.trim(), description: d.description?.trim() || null, is_active: true }))
+      )
+    }
+
+    for (const d of valid.filter(d => !d._new)) {
+      await supabase.from('documents').update({ name: d.name.trim(), description: d.description?.trim() || null }).eq('id', d.id)
+    }
+
+    setRemovedIds(new Set())
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+    supabase.from('documents').select('id, name, description').eq('spoke_id', spokeId).eq('is_active', true).order('name')
+      .then(({ data }) => setDocs(data ?? []))
+  }
+
+  if (loading) return <p className="text-sm text-gray-400">Loading...</p>
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      <FormSection title="Required documents">
+        <p className="text-xs text-gray-400 mb-4">
+          These documents are tracked for every candidate. Hiring managers mark them received from the candidate's Documents tab.
+        </p>
+        <div className="space-y-4">
+          {docs.map(doc => (
+            <div key={doc.id} className="flex gap-3 items-start">
+              <div className="flex-1 space-y-2">
+                <input
+                  type="text"
+                  value={doc.name}
+                  onChange={e => update(doc.id, 'name', e.target.value)}
+                  placeholder="Document name (e.g. Signed contract)"
+                  className={inputClass}
+                />
+                <input
+                  type="text"
+                  value={doc.description ?? ''}
+                  onChange={e => update(doc.id, 'description', e.target.value)}
+                  placeholder="Brief description (optional)"
+                  className={`${inputClass} text-gray-500`}
+                />
+              </div>
+              <button onClick={() => remove(doc.id, doc._new)}
+                className="text-gray-300 hover:text-red-400 pt-2.5 flex-shrink-0 text-sm">✕</button>
+            </div>
+          ))}
+        </div>
+        <button onClick={addDoc} className="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium">
+          + Add document
         </button>
       </FormSection>
 

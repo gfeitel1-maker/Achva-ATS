@@ -10,6 +10,7 @@ import ApplicationForm from './pages/ApplicationForm'
 import ApplicationSuccess from './pages/ApplicationSuccess'
 import ReferenceForm from './pages/ReferenceForm'
 import ReferenceSuccess from './pages/ReferenceSuccess'
+import ScheduleInterview from './pages/ScheduleInterview'
 import Settings from './pages/Settings'
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
           {/* Public — candidate-facing */}
           <Route path="/apply" element={<InterestForm />} />
           <Route path="/apply/success" element={<InterestFormSuccess />} />
+          <Route path="/schedule" element={<ScheduleInterview />} />
           <Route path="/application/:token" element={<ApplicationForm />} />
           <Route path="/application/success" element={<ApplicationSuccess />} />
           <Route path="/reference/:token" element={<ReferenceForm />} />

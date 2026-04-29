@@ -31,7 +31,7 @@ export default function Dashboard() {
 
       const { data } = await supabase
         .from('pipeline_records')
-        .select('id, current_stage, stage_entered_at, created_at, position, is_returning_staff, candidates(first_name, last_name, email)')
+        .select('id, candidate_id, current_stage, stage_entered_at, created_at, position, is_returning_staff, candidates(first_name, last_name, email)')
         .eq('hiring_cycle_id', cycleData.id)
 
       setRecords(data ?? [])
@@ -169,7 +169,7 @@ export default function Dashboard() {
               return (
                 <div
                   key={record.id}
-                  onClick={() => navigate(`/candidates/${record.id}`)}
+                  onClick={() => navigate(`/candidates/${record.candidate_id}`)}
                   className="px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
