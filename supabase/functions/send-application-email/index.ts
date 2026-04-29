@@ -8,7 +8,9 @@ const cors = {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
-  const { candidate_name, candidate_email, application_link } = await req.json()
+  const { candidate_name, candidate_email, application_link, org_name = 'Camp' } = await req.json()
+
+  const fromEmail = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -17,9 +19,9 @@ serve(async (req) => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Camp Achva Hiring <onboarding@resend.dev>',
+      from: `${org_name} Hiring <${fromEmail}>`,
       to: [candidate_email],
-      subject: 'Complete your application — Camp Achva',
+      subject: `Complete your application — ${org_name}`,
       html: `
         <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111">
           <h2 style="font-size:20px;font-weight:700;margin-bottom:8px">You're invited to apply</h2>
@@ -29,6 +31,7 @@ serve(async (req) => {
             Complete your application →
           </a>
           <p style="color:#aaa;font-size:12px;margin-top:24px">Or copy this link:<br>${application_link}</p>
+          <p style="color:#aaa;font-size:12px;margin-top:8px">${org_name} Hiring Team</p>
         </div>
       `,
     }),

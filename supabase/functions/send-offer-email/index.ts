@@ -8,7 +8,9 @@ const cors = {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
-  const { to_email, subject, email_body, offer_letter_html } = await req.json()
+  const { to_email, subject, email_body, offer_letter_html, org_name = 'Camp' } = await req.json()
+
+  const fromEmail = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
 
   const html = `
     <div style="font-family:sans-serif;max-width:680px;margin:0 auto;padding:32px 24px;color:#111;font-size:15px;line-height:1.6">
@@ -27,7 +29,7 @@ serve(async (req) => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Camp Achva Hiring <onboarding@resend.dev>',
+      from: `${org_name} Hiring <${fromEmail}>`,
       to: [to_email],
       subject,
       html,

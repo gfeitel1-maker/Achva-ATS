@@ -223,9 +223,10 @@ export default function CandidateDetail() {
         const link = `${window.location.origin}/application/${token}`
         await supabase.functions.invoke('send-application-email', {
           body: {
-            candidate_name:  `${candidate.first_name} ${candidate.last_name}`,
-            candidate_email: candidate.email,
+            candidate_name:   `${candidate.first_name} ${candidate.last_name}`,
+            candidate_email:  candidate.email,
             application_link: link,
+            org_name:         activeRecord.hiring_cycles?.spokes?.name ?? 'Camp',
           },
         })
       }
@@ -331,6 +332,7 @@ export default function CandidateDetail() {
         subject:           substituted(emailSubject),
         email_body:        substituted(emailBody),
         offer_letter_html: offer.offer_letter_html,
+        org_name:          activeRecord?.hiring_cycles?.spokes?.name ?? 'Camp',
       },
     })
     if (!error) {
