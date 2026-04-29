@@ -20,7 +20,7 @@ export default function Layout({ children }) {
         <span className="font-bold text-sm tracking-wide">Camp ATS</span>
         <div className="flex gap-5 ml-2">
           <NavLink to="/" active={location.pathname === '/'}>Dashboard</NavLink>
-          <NavLink to="/settings" active={location.pathname === '/settings'}>Forms</NavLink>
+          <NavLink to="/settings" active={location.pathname === '/settings'}>Settings</NavLink>
         </div>
         <div className="ml-auto">
           <button

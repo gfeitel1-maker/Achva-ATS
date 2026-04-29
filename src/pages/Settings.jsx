@@ -19,7 +19,7 @@ function moveItem(arr, index, dir) {
 // ── Top-level page ────────────────────────────────────────────
 
 export default function Settings() {
-  const [tab, setTab] = useState('interest')
+  const [tab, setTab] = useState('general')
   const [spokeId, setSpokeId] = useState(null)
 
   useEffect(() => {
@@ -28,17 +28,18 @@ export default function Settings() {
   }, [])
 
   const tabs = [
-    { id: 'interest',   label: 'Interest Form' },
+    { id: 'general',     label: 'General' },
+    { id: 'interest',    label: 'Interest Form' },
     { id: 'application', label: 'Application' },
-    { id: 'reference',  label: 'Reference Check' },
-    { id: 'documents',  label: 'Documents' },
+    { id: 'reference',   label: 'Reference Check' },
+    { id: 'documents',   label: 'Documents' },
   ]
 
   return (
     <Layout>
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-900">Forms</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Edit the forms candidates see during the hiring process.</p>
+        <h1 className="text-xl font-bold text-gray-900">Settings</h1>
+        <p className="text-sm text-gray-400 mt-0.5">Manage your organization, hiring cycles, and forms.</p>
       </div>
 
       <div className="flex border-b border-gray-200 mb-6">
@@ -52,12 +53,153 @@ export default function Settings() {
         ))}
       </div>
 
+      {spokeId && tab === 'general'      && <GeneralEditor        spokeId={spokeId} />}
       {spokeId && tab === 'interest'     && <InterestFormEditor   spokeId={spokeId} />}
       {spokeId && tab === 'application'  && <ApplicationEditor    spokeId={spokeId} />}
       {spokeId && tab === 'reference'    && <ReferenceEditor      spokeId={spokeId} />}
       {spokeId && tab === 'documents'    && <DocumentsEditor      spokeId={spokeId} />}
       {!spokeId && <p className="text-sm text-gray-400">Loading...</p>}
     </Layout>
+  )
+}
+
+// ── General Editor ────────────────────────────────────────────
+
+function GeneralEditor({ spokeId }) {
+  const [orgName, setOrgName]       = useState('')
+  const [cycles, setCycles]         = useState([])
+  const [newCycleName, setNewCycleName] = useState('')
+  const [orgSaving, setOrgSaving]   = useState(false)
+  const [orgSaved, setOrgSaved]     = useState(false)
+  const [cycleSaving, setCycleSaving] = useState(false)
+  const [loading, setLoading]       = useState(true)
+  const [interestFormUrl, setInterestFormUrl] = useState('')
+
+  useEffect(() => {
+    setInterestFormUrl(`${window.location.origin}/apply`)
+    Promise.all([
+      supabase.from('spokes').select('name').eq('id', spokeId).single(),
+      supabase.from('hiring_cycles').select('id, name, is_active, created_at').eq('spoke_id', spokeId).order('created_at', { ascending: false }),
+    ]).then(([spokeRes, cyclesRes]) => {
+      if (spokeRes.data) setOrgName(spokeRes.data.name ?? '')
+      setCycles(cyclesRes.data ?? [])
+      setLoading(false)
+    })
+  }, [spokeId])
+
+  async function saveOrgName() {
+    setOrgSaving(true)
+    await supabase.from('spokes').update({ name: orgName.trim() }).eq('id', spokeId)
+    setOrgSaving(false)
+    setOrgSaved(true)
+    setTimeout(() => setOrgSaved(false), 2000)
+  }
+
+  async function createCycle() {
+    const name = newCycleName.trim()
+    if (!name) return
+    setCycleSaving(true)
+    const { data } = await supabase
+      .from('hiring_cycles')
+      .insert({ spoke_id: spokeId, name, is_active: false })
+      .select('id, name, is_active, created_at')
+      .single()
+    if (data) setCycles(prev => [data, ...prev])
+    setNewCycleName('')
+    setCycleSaving(false)
+  }
+
+  async function setActiveCycle(cycleId) {
+    await supabase.from('hiring_cycles').update({ is_active: false }).eq('spoke_id', spokeId)
+    await supabase.from('hiring_cycles').update({ is_active: true }).eq('id', cycleId)
+    setCycles(prev => prev.map(c => ({ ...c, is_active: c.id === cycleId })))
+  }
+
+  const [copied, setCopied] = useState(false)
+  function copyLink() {
+    navigator.clipboard.writeText(interestFormUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  if (loading) return <p className="text-sm text-gray-400">Loading...</p>
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+
+      {/* Org name */}
+      <FormSection title="Organization">
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Organization name</label>
+            <input
+              type="text"
+              value={orgName}
+              onChange={e => setOrgName(e.target.value)}
+              placeholder="e.g. Camp Achva"
+              className={inputClass}
+            />
+            <p className="text-xs text-gray-400 mt-1.5">Shown in offer letters and candidate-facing emails.</p>
+          </div>
+          <div className="flex justify-end">
+            <SaveButton saving={orgSaving} saved={orgSaved} onClick={saveOrgName} />
+          </div>
+        </div>
+      </FormSection>
+
+      {/* Interest form link */}
+      <FormSection title="Interest form link">
+        <p className="text-xs text-gray-400 mb-3">Share this link with candidates to start the application process.</p>
+        <div className="flex items-center gap-2">
+          <code className="text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 flex-1 truncate text-gray-600">
+            {interestFormUrl}
+          </code>
+          <button onClick={copyLink}
+            className="text-sm px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex-shrink-0 transition-colors">
+            {copied ? 'Copied!' : 'Copy link'}
+          </button>
+        </div>
+      </FormSection>
+
+      {/* Hiring cycles */}
+      <FormSection title="Hiring cycles">
+        <p className="text-xs text-gray-400 mb-4">Only one cycle can be active at a time. The active cycle is what candidates apply to and what appears on the dashboard.</p>
+        <div className="space-y-2 mb-4">
+          {cycles.map(c => (
+            <div key={c.id} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0 gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-sm text-gray-800 truncate">{c.name}</span>
+                {c.is_active && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-100 flex-shrink-0">Active</span>
+                )}
+              </div>
+              {!c.is_active && (
+                <button onClick={() => setActiveCycle(c.id)}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium flex-shrink-0">
+                  Set active
+                </button>
+              )}
+            </div>
+          ))}
+          {cycles.length === 0 && <p className="text-sm text-gray-400">No hiring cycles yet.</p>}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newCycleName}
+            onChange={e => setNewCycleName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') createCycle() }}
+            placeholder="New cycle name (e.g. Summer 2027)"
+            className={inputClass}
+          />
+          <button onClick={createCycle} disabled={cycleSaving || !newCycleName.trim()}
+            className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors flex-shrink-0">
+            {cycleSaving ? 'Creating...' : 'Create'}
+          </button>
+        </div>
+      </FormSection>
+
+    </div>
   )
 }
 
