@@ -90,7 +90,7 @@ export default function ReferenceForm() {
         </h1>
         <p className="text-sm text-gray-500">
           Hi {info.reference_name} — thanks for taking a few minutes to share your thoughts.
-          {info.reference_relationship && ` Your response as ${info.reference_name}'s ${info.reference_relationship} means a lot.`}
+          {info.reference_relationship && ` Your response as ${info.candidate_name}'s ${info.reference_relationship} means a lot.`}
         </p>
       </div>
 

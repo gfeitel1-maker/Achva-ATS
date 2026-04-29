@@ -170,7 +170,7 @@ export default function ApplicationForm() {
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Camp Achva</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{appData?.org_name ?? 'Camp Achva'}</h1>
           <p className="text-gray-400 text-sm mt-1">Staff Application</p>
         </div>
 

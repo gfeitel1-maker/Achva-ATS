@@ -58,6 +58,7 @@ DECLARE
   v_pr_id    UUID;
   v_stage    TEXT;
   v_spoke_id UUID;
+  v_org_name TEXT;
   v_cand     RECORD;
   v_app      RECORD;
 BEGIN
@@ -88,6 +89,8 @@ BEGIN
     RETURN json_build_object('error', 'already_submitted');
   END IF;
 
+  SELECT name INTO v_org_name FROM spokes WHERE id = v_spoke_id;
+
   SELECT id, name, fields, intro_text, config
   INTO v_app
   FROM applications
@@ -96,6 +99,7 @@ BEGIN
 
   RETURN json_build_object(
     'pipeline_record_id', v_pr_id,
+    'org_name', v_org_name,
     'candidate', json_build_object(
       'first_name',     v_cand.first_name,
       'last_name',      v_cand.last_name,
@@ -110,6 +114,7 @@ BEGIN
     'application', json_build_object(
       'id',         v_app.id,
       'name',       v_app.name,
+      'fields',     COALESCE(v_app.fields, '[]'::jsonb),
       'intro_text', v_app.intro_text,
       'config',     COALESCE(v_app.config, '{}'::jsonb)
     )
