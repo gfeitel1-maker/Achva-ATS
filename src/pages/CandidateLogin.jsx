@@ -16,7 +16,7 @@ export default function CandidateLogin() {
       email,
       options: {
         emailRedirectTo: `${window.location.origin}/candidate`,
-        shouldCreateUser: false,
+        shouldCreateUser: true,
       },
     })
     setLoading(false)
