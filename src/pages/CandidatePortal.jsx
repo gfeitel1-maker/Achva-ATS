@@ -21,19 +21,29 @@ export default function CandidatePortal() {
   const [signingOut, setSigningOut] = useState(false)
 
   useEffect(() => {
-    async function load() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { navigate('/candidate/login'); return }
+    let settled = false
 
-      const { data, error } = await supabase.rpc('get_my_candidate_data')
-      if (error || data?.error) {
+    async function handleSession(session) {
+      if (settled) return
+      if (!session) {
+        settled = true
         navigate('/candidate/login')
         return
       }
+      settled = true
+      const { data, error } = await supabase.rpc('get_my_candidate_data')
+      if (error || data?.error) { navigate('/candidate/login'); return }
       setData(data)
       setLoading(false)
     }
-    load()
+
+    // onAuthStateChange fires after the client processes magic link tokens in
+    // the URL — more reliable than getSession() for handling link callbacks.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleSession(session)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   async function signOut() {

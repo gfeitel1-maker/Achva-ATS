@@ -17,8 +17,7 @@ export default function ContractSign() {
   const [signed, setSigned]           = useState(false)
 
   useEffect(() => {
-    async function load() {
-      const { data: { session } } = await supabase.auth.getSession()
+    async function load(session) {
       if (!session) { navigate('/candidate/login'); return }
 
       const { data, error: rpcError } = await supabase.rpc('get_my_contract')
@@ -36,7 +35,10 @@ export default function ContractSign() {
       setContract(data)
       setLoading(false)
     }
-    load()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      load(session)
+    })
+    return () => subscription.unsubscribe()
   }, [])
 
   async function handleSign(e) {
