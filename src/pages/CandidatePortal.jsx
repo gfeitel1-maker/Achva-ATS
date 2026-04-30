@@ -193,45 +193,53 @@ export default function CandidatePortal() {
             <h2 className="text-sm font-semibold text-gray-700 mb-3">Required documents</h2>
             <div className="space-y-3">
               {docs.map(doc => (
-                <div key={doc.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-start gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{doc.name}</p>
-                    {doc.description && (
-                      <p className="text-xs text-gray-400 mt-0.5">{doc.description}</p>
-                    )}
-                    {doc.submitted && doc.file_name && (
-                      <p className="text-xs text-green-600 mt-1 truncate">↑ {doc.file_name}</p>
-                    )}
+                <div key={doc.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900">{doc.name}</p>
+                      {doc.description && (
+                        <p className="text-xs text-gray-400 mt-0.5">{doc.description}</p>
+                      )}
+                      {doc.submitted && doc.file_name && (
+                        <p className="text-xs text-green-600 mt-1 truncate">↑ {doc.file_name}</p>
+                      )}
+                    </div>
+                    <div className="flex-shrink-0">
+                      {doc.submitted ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                          Uploaded
+                        </span>
+                      ) : (
+                        <label className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                          uploading[doc.id]
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}>
+                          {uploading[doc.id] ? 'Uploading...' : 'Upload file'}
+                          <input
+                            type="file"
+                            className="hidden"
+                            disabled={uploading[doc.id]}
+                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                            onChange={e => {
+                              const file = e.target.files?.[0]
+                              if (file) uploadFile(doc, file)
+                              e.target.value = ''
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex-shrink-0">
-                    {doc.submitted ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                        Uploaded
-                      </span>
-                    ) : (
-                      <label className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
-                        uploading[doc.id]
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
-                      }`}>
-                        {uploading[doc.id] ? 'Uploading...' : 'Upload file'}
-                        <input
-                          type="file"
-                          className="hidden"
-                          disabled={uploading[doc.id]}
-                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                          onChange={e => {
-                            const file = e.target.files?.[0]
-                            if (file) uploadFile(doc, file)
-                            e.target.value = ''
-                          }}
-                        />
-                      </label>
-                    )}
-                  </div>
+                  {/* Blank template download */}
+                  {doc.template_file_path && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <TemplateDownloadLink filePath={doc.template_file_path} fileName={doc.template_file_name} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -243,6 +251,23 @@ export default function CandidatePortal() {
 
       </div>
     </div>
+  )
+}
+
+function TemplateDownloadLink({ filePath, fileName }) {
+  const { data } = supabase.storage.from('document-templates').getPublicUrl(filePath)
+  return (
+    <a
+      href={data.publicUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium"
+    >
+      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      </svg>
+      Download blank form{fileName ? ` (${fileName})` : ''}
+    </a>
   )
 }
 

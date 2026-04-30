@@ -781,23 +781,27 @@ function ReferenceEditor({ spokeId }) {
 // ── Documents Editor ──────────────────────────────────────────
 
 function DocumentsEditor({ spokeId }) {
-  const [docs, setDocs]           = useState([])
-  const [removedIds, setRemovedIds] = useState(new Set())
-  const [loading, setLoading]     = useState(true)
-  const [saving, setSaving]       = useState(false)
-  const [saved, setSaved]         = useState(false)
+  const [docs, setDocs]               = useState([])
+  const [removedIds, setRemovedIds]   = useState(new Set())
+  const [loading, setLoading]         = useState(true)
+  const [saving, setSaving]           = useState(false)
+  const [saved, setSaved]             = useState(false)
+  const [templateUploading, setTemplateUploading] = useState({}) // { [docId]: true }
+  const [templateRemoving, setTemplateRemoving]   = useState({}) // { [docId]: true }
 
-  useEffect(() => {
-    supabase.from('documents')
-      .select('id, name, description')
+  function loadDocs() {
+    return supabase.from('documents')
+      .select('id, name, description, template_file_path, template_file_name')
       .eq('spoke_id', spokeId)
       .eq('is_active', true)
       .order('name')
       .then(({ data }) => { setDocs(data ?? []); setLoading(false) })
-  }, [spokeId])
+  }
+
+  useEffect(() => { loadDocs() }, [spokeId])
 
   function addDoc() {
-    setDocs(prev => [...prev, { id: newId(), name: '', description: '', _new: true }])
+    setDocs(prev => [...prev, { id: newId(), name: '', description: '', template_file_path: null, template_file_name: null, _new: true }])
   }
 
   function update(id, key, val) {
@@ -832,8 +836,61 @@ function DocumentsEditor({ spokeId }) {
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
-    supabase.from('documents').select('id, name, description').eq('spoke_id', spokeId).eq('is_active', true).order('name')
-      .then(({ data }) => setDocs(data ?? []))
+    loadDocs()
+  }
+
+  async function uploadTemplate(doc, file) {
+    if (!file || doc._new) return
+    if (file.size > 20 * 1024 * 1024) { alert('File must be under 20 MB.'); return }
+
+    setTemplateUploading(prev => ({ ...prev, [doc.id]: true }))
+
+    const ext      = file.name.split('.').pop()
+    const path     = `${doc.id}/${Date.now()}.${ext}`
+
+    // Remove old file if there was one
+    if (doc.template_file_path) {
+      await supabase.storage.from('document-templates').remove([doc.template_file_path])
+    }
+
+    const { error } = await supabase.storage
+      .from('document-templates')
+      .upload(path, file, { upsert: true })
+
+    if (error) {
+      alert('Upload failed. Please try again.')
+      setTemplateUploading(prev => ({ ...prev, [doc.id]: false }))
+      return
+    }
+
+    await supabase.from('documents')
+      .update({ template_file_path: path, template_file_name: file.name })
+      .eq('id', doc.id)
+
+    setDocs(prev => prev.map(d =>
+      d.id === doc.id ? { ...d, template_file_path: path, template_file_name: file.name } : d
+    ))
+    setTemplateUploading(prev => ({ ...prev, [doc.id]: false }))
+  }
+
+  async function removeTemplate(doc) {
+    if (!doc.template_file_path) return
+    setTemplateRemoving(prev => ({ ...prev, [doc.id]: true }))
+
+    await supabase.storage.from('document-templates').remove([doc.template_file_path])
+    await supabase.from('documents')
+      .update({ template_file_path: null, template_file_name: null })
+      .eq('id', doc.id)
+
+    setDocs(prev => prev.map(d =>
+      d.id === doc.id ? { ...d, template_file_path: null, template_file_name: null } : d
+    ))
+    setTemplateRemoving(prev => ({ ...prev, [doc.id]: false }))
+  }
+
+  async function downloadTemplate(doc) {
+    const { data } = supabase.storage.from('document-templates').getPublicUrl(doc.template_file_path)
+    window.open(data.publicUrl, '_blank')
   }
 
   if (loading) return <p className="text-sm text-gray-400">Loading...</p>
@@ -842,29 +899,84 @@ function DocumentsEditor({ spokeId }) {
     <div className="space-y-4 max-w-2xl">
       <FormSection title="Required documents">
         <p className="text-xs text-gray-400 mb-4">
-          These documents are tracked for every candidate. Hiring managers mark them received from the candidate's Documents tab.
+          Add the documents candidates need to submit. Optionally attach a blank template file they can download, fill out, and upload.
         </p>
-        <div className="space-y-4">
+        <div className="space-y-5">
           {docs.map(doc => (
-            <div key={doc.id} className="flex gap-3 items-start">
-              <div className="flex-1 space-y-2">
-                <input
-                  type="text"
-                  value={doc.name}
-                  onChange={e => update(doc.id, 'name', e.target.value)}
-                  placeholder="Document name (e.g. Signed contract)"
-                  className={inputClass}
-                />
-                <input
-                  type="text"
-                  value={doc.description ?? ''}
-                  onChange={e => update(doc.id, 'description', e.target.value)}
-                  placeholder="Brief description (optional)"
-                  className={`${inputClass} text-gray-500`}
-                />
+            <div key={doc.id} className="border border-gray-100 rounded-xl p-4 space-y-3">
+              <div className="flex gap-3 items-start">
+                <div className="flex-1 space-y-2">
+                  <input
+                    type="text"
+                    value={doc.name}
+                    onChange={e => update(doc.id, 'name', e.target.value)}
+                    placeholder="Document name (e.g. Medical form)"
+                    className={inputClass}
+                  />
+                  <input
+                    type="text"
+                    value={doc.description ?? ''}
+                    onChange={e => update(doc.id, 'description', e.target.value)}
+                    placeholder="Brief description shown to candidates (optional)"
+                    className={`${inputClass} text-gray-500`}
+                  />
+                </div>
+                <button onClick={() => remove(doc.id, doc._new)}
+                  className="text-gray-300 hover:text-red-400 pt-2.5 flex-shrink-0 text-sm">✕</button>
               </div>
-              <button onClick={() => remove(doc.id, doc._new)}
-                className="text-gray-300 hover:text-red-400 pt-2.5 flex-shrink-0 text-sm">✕</button>
+
+              {/* Template file section — only for saved docs */}
+              {!doc._new && (
+                <div className="pt-1 border-t border-gray-50">
+                  <p className="text-xs font-medium text-gray-500 mb-2">Blank form template</p>
+                  {doc.template_file_path ? (
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                        <span className="text-xs text-gray-600 truncate">{doc.template_file_name}</span>
+                      </div>
+                      <button onClick={() => downloadTemplate(doc)}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-medium flex-shrink-0">
+                        Download
+                      </button>
+                      <label className={`text-xs text-gray-500 hover:text-gray-700 cursor-pointer flex-shrink-0 ${templateUploading[doc.id] ? 'opacity-50 pointer-events-none' : ''}`}>
+                        Replace
+                        <input type="file" className="hidden"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                          disabled={templateUploading[doc.id]}
+                          onChange={e => { const f = e.target.files?.[0]; if (f) uploadTemplate(doc, f); e.target.value = '' }} />
+                      </label>
+                      <button onClick={() => removeTemplate(doc)} disabled={templateRemoving[doc.id]}
+                        className="text-xs text-red-400 hover:text-red-600 disabled:opacity-50 flex-shrink-0">
+                        {templateRemoving[doc.id] ? '...' : 'Remove'}
+                      </button>
+                    </div>
+                  ) : (
+                    <label className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
+                      templateUploading[doc.id]
+                        ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                        : 'border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600'
+                    }`}>
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      {templateUploading[doc.id] ? 'Uploading...' : 'Upload blank template'}
+                      <input type="file" className="hidden"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        disabled={templateUploading[doc.id]}
+                        onChange={e => { const f = e.target.files?.[0]; if (f) uploadTemplate(doc, f); e.target.value = '' }} />
+                    </label>
+                  )}
+                  {doc._new && (
+                    <p className="text-xs text-gray-400 italic">Save first to upload a template.</p>
+                  )}
+                </div>
+              )}
+              {doc._new && (
+                <p className="text-xs text-gray-300 pt-1 border-t border-gray-50">Save to add a blank form template.</p>
+              )}
             </div>
           ))}
         </div>
