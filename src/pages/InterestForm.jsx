@@ -93,6 +93,15 @@ export default function InterestForm() {
       return
     }
 
+    // Create candidate account — magic link sent to their email, fire and forget
+    supabase.auth.signInWithOtp({
+      email: identity.email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/candidate`,
+        shouldCreateUser: true,
+      },
+    })
+
     navigate('/schedule', { state: { firstName: identity.firstName } })
   }
 

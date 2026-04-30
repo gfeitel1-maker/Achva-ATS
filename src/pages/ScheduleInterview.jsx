@@ -36,6 +36,12 @@ export default function ScheduleInterview() {
         <p className="text-xs text-gray-400 mt-4">
           Opens in a new tab. You can close this page after scheduling.
         </p>
+
+        <p className="text-xs text-gray-400 mt-6">
+          Check your email for a link to your applicant portal, or{' '}
+          <a href="/candidate/login" className="text-blue-500 hover:underline">log in here</a>
+          {' '}to track your application status.
+        </p>
       </div>
     </div>
   )
