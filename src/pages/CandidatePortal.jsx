@@ -21,29 +21,28 @@ export default function CandidatePortal() {
   const [signingOut, setSigningOut] = useState(false)
 
   useEffect(() => {
-    let settled = false
+    let loaded = false
 
-    async function handleSession(session) {
-      if (settled) return
-      if (!session) {
-        settled = true
-        navigate('/candidate/login')
-        return
-      }
-      settled = true
+    async function loadData() {
+      if (loaded) return
+      loaded = true
       const { data, error } = await supabase.rpc('get_my_candidate_data')
       if (error || data?.error) { navigate('/candidate/login'); return }
       setData(data)
       setLoading(false)
     }
 
-    // onAuthStateChange fires after the client processes magic link tokens in
-    // the URL — more reliable than getSession() for handling link callbacks.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      handleSession(session)
+    // onAuthStateChange fires after magic link tokens are exchanged — don't
+    // redirect on null here because PKCE code exchange may still be in flight.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) loadData()
+      else if (event === 'SIGNED_OUT') navigate('/candidate/login')
     })
 
-    return () => subscription.unsubscribe()
+    // Fallback: if nothing fires within 3s, no valid session exists
+    const timeout = setTimeout(() => { if (!loaded) navigate('/candidate/login') }, 3000)
+
+    return () => { subscription.unsubscribe(); clearTimeout(timeout) }
   }, [])
 
   async function signOut() {
