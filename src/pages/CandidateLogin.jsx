@@ -21,7 +21,8 @@ export default function CandidateLogin() {
     })
     setLoading(false)
     if (error) {
-      setError('Something went wrong. Please try again.')
+      console.error('signInWithOtp error:', error)
+      setError(error.message || 'Something went wrong. Please try again.')
     } else {
       setSent(true)
     }
