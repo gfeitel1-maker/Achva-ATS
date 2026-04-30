@@ -2,17 +2,18 @@
 // To add configurable pipelines in v2, replace this with a database read.
 
 export const STAGES = {
-  interest:      { label: 'Interest',      color: 'gray',  order: 1 },
-  interview:     { label: 'Interview',     color: 'blue',  order: 2 },
-  application:   { label: 'Application',   color: 'blue',  order: 3 },
-  offer:         { label: 'Offer',         color: 'green', order: 4 },
-  hired:         { label: 'Hired',         color: 'green', order: 5 },
-  not_advancing: { label: 'Not Advancing', color: 'red',   order: 6 },
-  withdrawn:     { label: 'Withdrawn',     color: 'red',   order: 7 },
+  interest:      { label: 'Interest',      color: 'gray',   order: 1 },
+  interview:     { label: 'Interview',     color: 'blue',   order: 2 },
+  application:   { label: 'Application',   color: 'blue',   order: 3 },
+  offer:         { label: 'Offer',         color: 'green',  order: 4 },
+  contract:      { label: 'Contract',      color: 'purple', order: 5 },
+  hired:         { label: 'Hired',         color: 'green',  order: 6 },
+  not_advancing: { label: 'Not Advancing', color: 'red',    order: 7 },
+  withdrawn:     { label: 'Withdrawn',     color: 'red',    order: 8 },
 }
 
 // Linear flow — one step forward, one step back.
-export const STAGE_FLOW = ['interest', 'interview', 'application', 'offer', 'hired']
+export const STAGE_FLOW = ['interest', 'interview', 'application', 'offer', 'contract', 'hired']
 
 export function nextStage(current) {
   const i = STAGE_FLOW.indexOf(current)

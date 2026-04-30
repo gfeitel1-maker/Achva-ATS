@@ -8,7 +8,27 @@
       "Bash(gh auth *)",
       "Bash(gh repo *)",
       "Bash(brew install *)",
-      "Bash(python3 -c \"import pdfminer\")"
+      "Bash(python3 -c \"import pdfminer\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3)",
+      "WebSearch",
+      "WebFetch(domain:support.campmanagement.com)",
+      "WebFetch(domain:campbrain.com)",
+      "WebFetch(domain:campminder.com)",
+      "WebFetch(domain:www.capterra.com)",
+      "WebFetch(domain:help.ultracamp.com)",
+      "WebFetch(domain:help.campminder.com)",
+      "WebFetch(domain:www.icamppro.com)",
+      "WebFetch(domain:www.campwise.com)",
+      "WebFetch(domain:www.circuitree.com)",
+      "WebFetch(domain:blog.circuitree.com)",
+      "WebFetch(domain:help.amilia.com)",
+      "Bash(xargs kill *)",
+      "Bash(kill -9 19659)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)",
+      "Bash(awk '{print $2}')",
+      "Bash(supabase functions *)",
+      "Bash(npx supabase *)"
     ]
   }
 }

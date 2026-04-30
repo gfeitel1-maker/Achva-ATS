@@ -63,6 +63,13 @@ export default function CandidateDetail() {
   const [offer, setOffer]               = useState(null)
   const [offerForm, setOfferForm]       = useState({ position_title: '', start_date: '', salary: '' })
   const [positionMode, setPositionMode] = useState('applied')
+
+  // Contract
+  const [contract, setContract]                   = useState(null)
+  const [contractTemplates, setContractTemplates] = useState([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState(null)
+  const [contractVars, setContractVars]           = useState({ position: '', start_date: '', end_date: '', salary: '' })
+  const [generatingContract, setGeneratingContract] = useState(false)
   const [offerSaving, setOfferSaving]   = useState(false)
   const [editingOffer, setEditingOffer] = useState(false)
   const [emailSubject, setEmailSubject] = useState('')
@@ -150,9 +157,9 @@ export default function CandidateDetail() {
         setDocs(docsRes.data ?? [])
       }
 
-      // Load offer if at offer/hired stage
+      // Load offer if at offer / contract / hired stage
       const stage = rec.current_stage
-      if (['offer', 'hired'].includes(stage)) {
+      if (['offer', 'contract', 'hired'].includes(stage)) {
         const [offerRes, templateRes] = await Promise.all([
           supabase.from('offers').select('*').eq('pipeline_record_id', activeRecordId).maybeSingle(),
           spokeId
@@ -171,7 +178,23 @@ export default function CandidateDetail() {
         const tmpl = templateRes.data
         setEmailSubject(tmpl?.subject ?? 'Your offer — {{org_name}}')
         setEmailBody(tmpl?.body ?? "Hi {{first_name}},\n\nWe're excited to extend this offer to you. Please review the letter below.\n\nWarm regards,\n{{org_name}} Hiring Team")
-        if (['offer', 'hired'].includes(stage)) setActiveTab('Offer')
+
+        if (stage === 'contract') setActiveTab('Contract')
+        else setActiveTab('Offer')
+      }
+
+      // Load contract data if at contract stage
+      if (stage === 'contract') {
+        const [contractRes, templatesRes] = await Promise.all([
+          supabase.from('contracts').select('*').eq('pipeline_record_id', activeRecordId).maybeSingle(),
+          supabase.from('contract_templates').select('id, name').eq('is_active', true),
+        ])
+        const contractData = contractRes.data ?? null
+        const templates    = templatesRes.data ?? []
+        setContract(contractData)
+        setContractTemplates(templates)
+        setContractVars({ position: rec.position ?? '', start_date: '', end_date: '', salary: '' })
+        if (templates.length > 0 && !contractData) setSelectedTemplateId(templates[0].id)
       }
 
       setCycleLoading(false)
@@ -187,10 +210,13 @@ export default function CandidateDetail() {
   const back          = prevStage(stage)
   const terminal      = isTerminal(stage)
   const hired         = stage === 'hired'
-  const showOfferTab  = ['offer', 'hired'].includes(stage)
-  const tabs          = showOfferTab
-    ? ['Offer', 'Application', 'References', 'Notes', 'Documents']
-    : ['Application', 'References', 'Notes', 'Documents']
+  const showOfferTab     = ['offer', 'contract', 'hired'].includes(stage)
+  const showContractTab  = stage === 'contract'
+  const tabs = [
+    ...(showOfferTab    ? ['Offer']    : []),
+    ...(showContractTab ? ['Contract'] : []),
+    'Application', 'References', 'Notes', 'Documents',
+  ]
   const currentOrder  = STAGES[stage]?.order ?? 0
   const questions     = [...(submission?.interest_forms?.questions ?? [])].sort((a, b) => a.order - b.order)
 
@@ -218,7 +244,8 @@ export default function CandidateDetail() {
     const { error } = await supabase.from('pipeline_records').update(updates).eq('id', activeRecordId)
     if (!error) {
       setAllRecords(prev => prev.map(r => r.id === activeRecordId ? { ...r, ...updates } : r))
-      if (newStage === 'offer') setActiveTab('Offer')
+      if (newStage === 'offer')     setActiveTab('Offer')
+      if (newStage === 'contract')  setActiveTab('Contract')
       if (token) {
         const link = `${window.location.origin}/application/${token}`
         await supabase.functions.invoke('send-application-email', {
@@ -288,6 +315,31 @@ export default function CandidateDetail() {
       setRefs(prev => prev.map(r => r.id === ref.id ? { ...r, email_sent_at: now } : r))
     }
     setSendingRef(null)
+  }
+
+  async function generateContract() {
+    if (!selectedTemplateId) return
+    setGeneratingContract(true)
+    const orgName = activeRecord?.hiring_cycles?.spokes?.name ?? 'Camp'
+    const { data, error } = await supabase.rpc('generate_contract', {
+      p_pipeline_record_id: activeRecordId,
+      p_template_id:        selectedTemplateId,
+      p_variables: {
+        first_name: candidate?.first_name ?? '',
+        last_name:  candidate?.last_name  ?? '',
+        org_name:   orgName,
+        position:   contractVars.position,
+        start_date: contractVars.start_date || null,
+        end_date:   contractVars.end_date   || null,
+        salary:     contractVars.salary,
+      },
+    })
+    if (!error && data?.success) {
+      const { data: contractData } = await supabase
+        .from('contracts').select('*').eq('pipeline_record_id', activeRecordId).single()
+      setContract(contractData ?? null)
+    }
+    setGeneratingContract(false)
   }
 
   async function generateOffer() {
@@ -635,6 +687,104 @@ export default function CandidateDetail() {
                             </button>
                           </div>
                         </div>
+                      </Section>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ── CONTRACT TAB ── */}
+              {activeTab === 'Contract' && (
+                <div className="space-y-4">
+                  {!contract ? (
+                    <Section title="Generate contract">
+                      <div className="space-y-4">
+                        {contractTemplates.length === 0 ? (
+                          <p className="text-sm text-gray-400">
+                            No contract templates found. Add one in Settings → Contract Templates.
+                          </p>
+                        ) : (
+                          <>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1.5">Template</label>
+                              <select
+                                value={selectedTemplateId ?? ''}
+                                onChange={e => setSelectedTemplateId(e.target.value)}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                              >
+                                {contractTemplates.map(t => (
+                                  <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Position</label>
+                                <input type="text" value={contractVars.position}
+                                  onChange={e => setContractVars(v => ({ ...v, position: e.target.value }))}
+                                  placeholder="e.g. Counselor"
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Compensation</label>
+                                <input type="text" value={contractVars.salary}
+                                  onChange={e => setContractVars(v => ({ ...v, salary: e.target.value }))}
+                                  placeholder="e.g. $500/week"
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Start date</label>
+                                <input type="date" value={contractVars.start_date}
+                                  onChange={e => setContractVars(v => ({ ...v, start_date: e.target.value }))}
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">End date</label>
+                                <input type="date" value={contractVars.end_date}
+                                  onChange={e => setContractVars(v => ({ ...v, end_date: e.target.value }))}
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                              </div>
+                            </div>
+                            <button onClick={generateContract} disabled={generatingContract || !selectedTemplateId}
+                              className="text-sm bg-blue-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                              {generatingContract ? 'Generating...' : 'Generate contract'}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </Section>
+                  ) : (
+                    <>
+                      {contract.status === 'signed' ? (
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
+                          <div className="w-7 h-7 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+                            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-green-800">Contract signed</p>
+                            <p className="text-xs text-green-600 mt-0.5">
+                              Signed as "{contract.signature_name}"
+                              {contract.signed_at ? ` · ${new Date(contract.signed_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+                          <div className="w-2.5 h-2.5 rounded-full bg-amber-400 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-amber-800">Awaiting candidate signature</p>
+                            <p className="text-xs text-amber-600 mt-0.5">
+                              The candidate can sign via their applicant portal at /candidate
+                            </p>
+                          </div>
+                          <button onClick={() => setContract(null)} className="text-xs text-amber-600 hover:text-amber-800 flex-shrink-0">Regenerate</button>
+                        </div>
+                      )}
+                      <Section title="Contract preview">
+                        <div className="border border-gray-100 rounded-lg p-6 bg-gray-50"
+                          dangerouslySetInnerHTML={{ __html: contract.rendered_html }} />
                       </Section>
                     </>
                   )}

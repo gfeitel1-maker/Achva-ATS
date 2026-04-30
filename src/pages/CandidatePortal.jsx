@@ -7,6 +7,7 @@ const STAGE_INFO = {
   interview:     { label: 'Interview scheduled', message: "Your interview is scheduled. We'll reach out after it's completed." },
   application:   { label: 'Ready to apply',      message: 'Your application is ready to fill out. Click below whenever you\'re ready.' },
   offer:         { label: 'Offer waiting',        message: 'You have an offer ready to review. Click below to read it and let us know your decision.' },
+  contract:      { label: 'Contract ready',       message: 'Your contract is ready to sign. Please review it carefully and add your signature below.' },
   hired:         { label: 'Hired!',               message: "You're on the team! We'll be in touch soon with everything you need." },
   not_advancing: { label: 'Application closed',  message: "Thank you for your interest. We've moved forward with other candidates at this time." },
   withdrawn:     { label: 'Withdrawn',            message: 'Your application has been withdrawn.' },
@@ -100,6 +101,15 @@ export default function CandidatePortal() {
           </a>
         )}
 
+        {stage === 'contract' && (
+          <a
+            href="/contract"
+            className="block w-full text-center bg-blue-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors text-sm"
+          >
+            Review and sign your contract →
+          </a>
+        )}
+
         {stage === 'offer' && data?.offer?.status === 'accepted' && (
           <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
             <p className="text-sm font-semibold text-green-800">You've accepted your offer ✓</p>
@@ -129,6 +139,7 @@ function StatusDot({ stage }) {
     interview:     'bg-blue-400',
     application:   'bg-blue-600',
     offer:         'bg-green-500',
+    contract:      'bg-purple-500',
     hired:         'bg-green-600',
     not_advancing: 'bg-gray-300',
     withdrawn:     'bg-gray-300',

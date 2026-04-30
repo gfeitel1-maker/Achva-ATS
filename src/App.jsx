@@ -14,6 +14,7 @@ import ScheduleInterview from './pages/ScheduleInterview'
 import OfferAcceptance from './pages/OfferAcceptance'
 import CandidateLogin from './pages/CandidateLogin'
 import CandidatePortal from './pages/CandidatePortal'
+import ContractSign from './pages/ContractSign'
 import Settings from './pages/Settings'
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/offer/:token" element={<OfferAcceptance />} />
           <Route path="/candidate/login" element={<CandidateLogin />} />
           <Route path="/candidate" element={<CandidatePortal />} />
+          <Route path="/contract" element={<ContractSign />} />
 
           {/* Auth */}
           <Route path="/login" element={<Login />} />
