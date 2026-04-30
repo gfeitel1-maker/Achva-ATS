@@ -7,28 +7,35 @@ export default function ScheduleInterview() {
   const firstName = state?.firstName
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-5">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-xl font-bold text-gray-900">
-            {firstName ? `Thanks, ${firstName}!` : 'You\'re all set!'}
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Schedule your interview below — pick whatever time works best for you.
-          </p>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="max-w-md w-full text-center">
 
-      {/* Booking iframe */}
-      <div className="flex-1">
-        <iframe
-          src={BOOKING_URL}
-          title="Schedule your interview"
-          width="100%"
-          style={{ height: 'calc(100vh - 89px)', border: 'none', display: 'block' }}
-          scrolling="yes"
-        />
+        {/* Check mark */}
+        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
+          <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          {firstName ? `Thanks, ${firstName}!` : 'You\'re all set!'}
+        </h1>
+        <p className="text-gray-500 text-sm mb-8">
+          Your interest form has been submitted. The last step is to schedule your interview — pick whatever time works best for you.
+        </p>
+
+        <a
+          href={BOOKING_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block w-full bg-blue-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-blue-700 transition-colors text-sm"
+        >
+          Schedule your interview →
+        </a>
+
+        <p className="text-xs text-gray-400 mt-4">
+          Opens in a new tab. You can close this page after scheduling.
+        </p>
       </div>
     </div>
   )
