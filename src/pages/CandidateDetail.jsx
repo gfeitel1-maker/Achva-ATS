@@ -992,25 +992,36 @@ export default function CandidateDetail() {
                       return (
                         <div key={doc.id} className="bg-white rounded-xl border border-gray-200 p-5 flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2.5">
+                            <div className="flex items-center gap-2.5 flex-wrap">
                               <p className="text-sm font-semibold text-gray-900">{doc.name}</p>
                               <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${sub ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
-                                {sub ? 'Received' : 'Pending'}
+                                {sub?.file_path ? 'Uploaded by candidate' : sub ? 'Received' : 'Pending'}
                               </span>
                             </div>
                             {doc.description && <p className="text-xs text-gray-400 mt-1">{doc.description}</p>}
+                            {sub?.file_name && (
+                              <p className="text-xs text-gray-400 mt-1 truncate">
+                                {sub.file_name}
+                                {sub.file_size && ` · ${(sub.file_size / 1024).toFixed(0)} KB`}
+                              </p>
+                            )}
                             {sub?.received_at && (
-                              <p className="text-xs text-gray-300 mt-1.5">
-                                Received {new Date(sub.received_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                              <p className="text-xs text-gray-300 mt-1">
+                                {new Date(sub.received_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                               </p>
                             )}
                           </div>
-                          {!sub && (
-                            <button onClick={() => markReceived(doc.id)} disabled={markingDoc === doc.id}
-                              className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors flex-shrink-0">
-                              {markingDoc === doc.id ? 'Saving...' : 'Mark received'}
-                            </button>
-                          )}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {sub?.file_path && (
+                              <DownloadButton filePath={sub.file_path} fileName={sub.file_name} />
+                            )}
+                            {!sub && (
+                              <button onClick={() => markReceived(doc.id)} disabled={markingDoc === doc.id}
+                                className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                                {markingDoc === doc.id ? 'Saving...' : 'Mark received'}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )
                     })
@@ -1091,6 +1102,34 @@ function AppFieldResponse({ field, value }) {
     <Section title={field.label}>
       <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{String(value)}</p>
     </Section>
+  )
+}
+
+function DownloadButton({ filePath, fileName }) {
+  const [loading, setLoading] = useState(false)
+
+  async function download() {
+    setLoading(true)
+    const { data, error } = await supabase.storage
+      .from('candidate-documents')
+      .createSignedUrl(filePath, 60)  // 60-second signed URL
+    setLoading(false)
+    if (error || !data?.signedUrl) { alert('Could not generate download link.'); return }
+    window.open(data.signedUrl, '_blank')
+  }
+
+  return (
+    <button onClick={download} disabled={loading}
+      className="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg font-medium hover:bg-gray-200 disabled:opacity-50 transition-colors flex items-center gap-1.5">
+      {loading ? 'Loading...' : (
+        <>
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Download
+        </>
+      )}
+    </button>
   )
 }
 

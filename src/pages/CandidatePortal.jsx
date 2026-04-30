@@ -20,6 +20,11 @@ export default function CandidatePortal() {
   const [loading, setLoading]     = useState(true)
   const [signingOut, setSigningOut] = useState(false)
 
+  // Documents
+  const [docs, setDocs]                   = useState([])
+  const [pipelineRecordId, setPipelineRecordId] = useState(null)
+  const [uploading, setUploading]         = useState({}) // { [docId]: true }
+
   useEffect(() => {
     let loaded = false
 
@@ -30,6 +35,13 @@ export default function CandidatePortal() {
       if (error || data?.error) { navigate('/candidate/login'); return }
       setData(data)
       setLoading(false)
+
+      // Load documents in background
+      const { data: docsData } = await supabase.rpc('get_my_documents')
+      if (docsData && !docsData.error) {
+        setPipelineRecordId(docsData.pipeline_record_id)
+        setDocs(docsData.documents ?? [])
+      }
     }
 
     // onAuthStateChange fires after magic link tokens are exchanged — don't
@@ -49,6 +61,44 @@ export default function CandidatePortal() {
     setSigningOut(true)
     await supabase.auth.signOut()
     navigate('/candidate/login')
+  }
+
+  async function uploadFile(doc, file) {
+    if (!file || !pipelineRecordId) return
+    if (file.size > 10 * 1024 * 1024) { alert('File must be under 10 MB.'); return }
+
+    setUploading(prev => ({ ...prev, [doc.id]: true }))
+
+    const ext      = file.name.split('.').pop()
+    const safeName = `${Date.now()}.${ext}`
+    const path     = `${pipelineRecordId}/${doc.id}/${safeName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('candidate-documents')
+      .upload(path, file, { upsert: true })
+
+    if (uploadError) {
+      alert('Upload failed. Please try again.')
+      setUploading(prev => ({ ...prev, [doc.id]: false }))
+      return
+    }
+
+    const { data: rpcData } = await supabase.rpc('submit_document', {
+      p_document_id: doc.id,
+      p_file_path:   path,
+      p_file_name:   file.name,
+      p_file_size:   file.size,
+    })
+
+    if (rpcData?.success) {
+      setDocs(prev => prev.map(d =>
+        d.id === doc.id
+          ? { ...d, submitted: true, file_name: file.name, file_path: path }
+          : d
+      ))
+    }
+
+    setUploading(prev => ({ ...prev, [doc.id]: false }))
   }
 
   if (loading) return (
@@ -134,6 +184,60 @@ export default function CandidatePortal() {
         {stage === 'hired' && (
           <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
             <p className="text-sm font-semibold text-green-800">Welcome to the team! 🎉</p>
+          </div>
+        )}
+
+        {/* Documents section — shown when there are required docs */}
+        {docs.length > 0 && (
+          <div className="mt-6">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">Required documents</h2>
+            <div className="space-y-3">
+              {docs.map(doc => (
+                <div key={doc.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-start gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{doc.name}</p>
+                    {doc.description && (
+                      <p className="text-xs text-gray-400 mt-0.5">{doc.description}</p>
+                    )}
+                    {doc.submitted && doc.file_name && (
+                      <p className="text-xs text-green-600 mt-1 truncate">↑ {doc.file_name}</p>
+                    )}
+                  </div>
+                  <div className="flex-shrink-0">
+                    {doc.submitted ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Uploaded
+                      </span>
+                    ) : (
+                      <label className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                        uploading[doc.id]
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}>
+                        {uploading[doc.id] ? 'Uploading...' : 'Upload file'}
+                        <input
+                          type="file"
+                          className="hidden"
+                          disabled={uploading[doc.id]}
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                          onChange={e => {
+                            const file = e.target.files?.[0]
+                            if (file) uploadFile(doc, file)
+                            e.target.value = ''
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 mt-3">
+              Accepted formats: PDF, JPG, PNG, Word document. Max 10 MB per file.
+            </p>
           </div>
         )}
 
