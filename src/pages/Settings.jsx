@@ -33,6 +33,7 @@ export default function Settings() {
     { id: 'application', label: 'Application' },
     { id: 'reference',   label: 'Reference Check' },
     { id: 'documents',   label: 'Documents' },
+    { id: 'contracts',   label: 'Contracts' },
   ]
 
   return (
@@ -57,7 +58,8 @@ export default function Settings() {
       {spokeId && tab === 'interest'     && <InterestFormEditor   spokeId={spokeId} />}
       {spokeId && tab === 'application'  && <ApplicationEditor    spokeId={spokeId} />}
       {spokeId && tab === 'reference'    && <ReferenceEditor      spokeId={spokeId} />}
-      {spokeId && tab === 'documents'    && <DocumentsEditor      spokeId={spokeId} />}
+      {spokeId && tab === 'documents'    && <DocumentsEditor          spokeId={spokeId} />}
+      {spokeId && tab === 'contracts'   && <ContractTemplateEditor  spokeId={spokeId} />}
       {!spokeId && <p className="text-sm text-gray-400">Loading...</p>}
     </Layout>
   )
@@ -874,6 +876,210 @@ function DocumentsEditor({ spokeId }) {
       <div className="flex justify-end">
         <SaveButton saving={saving} saved={saved} onClick={save} />
       </div>
+    </div>
+  )
+}
+
+// ── Contract Template Editor ──────────────────────────────────
+
+const PLACEHOLDERS = [
+  { token: '{{first_name}}', desc: 'Candidate first name' },
+  { token: '{{last_name}}',  desc: 'Last name' },
+  { token: '{{position}}',   desc: 'Position / role' },
+  { token: '{{start_date}}', desc: 'Start date' },
+  { token: '{{end_date}}',   desc: 'End date' },
+  { token: '{{salary}}',     desc: 'Compensation' },
+  { token: '{{org_name}}',   desc: 'Organization name' },
+]
+
+function ContractTemplateEditor({ spokeId }) {
+  const [templates, setTemplates] = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [editingId, setEditingId] = useState(null)   // null = list, 'new' = new form, uuid = edit existing
+  const [form, setForm]           = useState({ name: '', body_html: '' })
+  const [saving, setSaving]       = useState(false)
+  const [saved, setSaved]         = useState(false)
+  const [removing, setRemoving]   = useState(null)
+
+  useEffect(() => {
+    load()
+  }, [spokeId])
+
+  async function load() {
+    const { data } = await supabase
+      .from('contract_templates')
+      .select('id, name, is_active, created_at')
+      .eq('spoke_id', spokeId)
+      .order('created_at', { ascending: false })
+    setTemplates(data ?? [])
+    setLoading(false)
+  }
+
+  function startNew() {
+    setForm({ name: '', body_html: '' })
+    setEditingId('new')
+    setSaved(false)
+  }
+
+  async function startEdit(id) {
+    const { data } = await supabase
+      .from('contract_templates')
+      .select('id, name, body_html')
+      .eq('id', id)
+      .single()
+    if (data) {
+      setForm({ name: data.name, body_html: data.body_html })
+      setEditingId(id)
+      setSaved(false)
+    }
+  }
+
+  async function save() {
+    if (!form.name.trim()) return
+    setSaving(true)
+    if (editingId === 'new') {
+      const { data } = await supabase
+        .from('contract_templates')
+        .insert({ spoke_id: spokeId, name: form.name.trim(), body_html: form.body_html, is_active: true })
+        .select('id, name, is_active, created_at')
+        .single()
+      if (data) setTemplates(prev => [data, ...prev])
+    } else {
+      await supabase
+        .from('contract_templates')
+        .update({ name: form.name.trim(), body_html: form.body_html, updated_at: new Date().toISOString() })
+        .eq('id', editingId)
+      setTemplates(prev => prev.map(t => t.id === editingId ? { ...t, name: form.name.trim() } : t))
+    }
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => { setSaved(false); setEditingId(null) }, 1200)
+  }
+
+  async function toggleActive(id, current) {
+    await supabase.from('contract_templates').update({ is_active: !current }).eq('id', id)
+    setTemplates(prev => prev.map(t => t.id === id ? { ...t, is_active: !current } : t))
+  }
+
+  async function remove(id) {
+    setRemoving(id)
+    await supabase.from('contract_templates').delete().eq('id', id)
+    setTemplates(prev => prev.filter(t => t.id !== id))
+    setRemoving(null)
+  }
+
+  if (loading) return <p className="text-sm text-gray-400">Loading...</p>
+
+  // ── Edit / New form ──
+  if (editingId !== null) {
+    return (
+      <div className="space-y-4 max-w-2xl">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-700">
+            {editingId === 'new' ? 'New template' : 'Edit template'}
+          </h2>
+          <button onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-gray-600">
+            ← Back to templates
+          </button>
+        </div>
+
+        <FormSection title="Template name">
+          <input
+            type="text"
+            value={form.name}
+            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            placeholder="e.g. Summer 2025 Counselor Contract"
+            className={inputClass}
+            autoFocus
+          />
+        </FormSection>
+
+        <FormSection title="Contract body">
+          <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+            <p className="text-xs font-medium text-gray-500 mb-2">Available placeholders</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {PLACEHOLDERS.map(p => (
+                <span key={p.token} className="text-xs text-gray-500">
+                  <code className="bg-white border border-gray-200 rounded px-1 py-0.5 text-blue-600 font-mono">
+                    {p.token}
+                  </code>
+                  {' '}— {p.desc}
+                </span>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 mb-2">
+            Write the contract in HTML. Use the placeholders above — they'll be filled in with the candidate's details when you generate a contract.
+          </p>
+          <textarea
+            value={form.body_html}
+            onChange={e => setForm(f => ({ ...f, body_html: e.target.value }))}
+            rows={24}
+            placeholder={`<p>This agreement is entered into between <strong>{{org_name}}</strong> and <strong>{{first_name}} {{last_name}}</strong>...</p>`}
+            className={`${textareaClass} font-mono text-xs resize-y`}
+          />
+        </FormSection>
+
+        <div className="flex justify-end gap-3">
+          <button onClick={() => setEditingId(null)}
+            className="text-sm px-4 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors">
+            Cancel
+          </button>
+          <SaveButton saving={saving} saved={saved} onClick={save} />
+        </div>
+      </div>
+    )
+  }
+
+  // ── Template list ──
+  return (
+    <div className="space-y-4 max-w-2xl">
+      <FormSection title="Contract templates">
+        <p className="text-xs text-gray-400 mb-4">
+          Templates are used to generate contracts for candidates at the Contract stage.
+          Use placeholders like <code className="bg-gray-100 px-1 rounded text-blue-600">{'{{first_name}}'}</code> and <code className="bg-gray-100 px-1 rounded text-blue-600">{'{{position}}'}</code> — they're filled in automatically.
+        </p>
+
+        {templates.length === 0 ? (
+          <p className="text-sm text-gray-400 py-2">No templates yet. Create one below.</p>
+        ) : (
+          <div className="space-y-2 mb-4">
+            {templates.map(t => (
+              <div key={t.id} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0 gap-3">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <span className="text-sm text-gray-800 truncate">{t.name}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full border flex-shrink-0 ${
+                    t.is_active
+                      ? 'bg-green-50 text-green-700 border-green-100'
+                      : 'bg-gray-50 text-gray-400 border-gray-200'
+                  }`}>
+                    {t.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <button onClick={() => toggleActive(t.id, t.is_active)}
+                    className="text-xs text-gray-400 hover:text-gray-700">
+                    {t.is_active ? 'Deactivate' : 'Activate'}
+                  </button>
+                  <button onClick={() => startEdit(t.id)}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                    Edit
+                  </button>
+                  <button onClick={() => remove(t.id)} disabled={removing === t.id}
+                    className="text-xs text-red-400 hover:text-red-600 disabled:opacity-50">
+                    {removing === t.id ? '...' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button onClick={startNew}
+          className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+          + New template
+        </button>
+      </FormSection>
     </div>
   )
 }

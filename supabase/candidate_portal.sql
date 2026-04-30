@@ -40,7 +40,7 @@ BEGIN
   END IF;
 
   -- Fetch offer details if applicable
-  IF v_record.current_stage IN ('offer', 'hired') THEN
+  IF v_record.current_stage IN ('offer', 'contract', 'hired') THEN
     SELECT acceptance_token, status
     INTO v_offer
     FROM offers
